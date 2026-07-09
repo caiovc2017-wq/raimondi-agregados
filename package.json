@@ -1,0 +1,61 @@
+{
+  "name": "raimondi-agregados",
+  "version": "1.0.0",
+  "description": "Sistema de Gestão de Agregados e Terceirizados - Raimondi",
+  "main": "electron/main.js",
+  "homepage": "./",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "vite build && electron-builder",
+    "electron:build:win": "vite build && electron-builder --win",
+    "electron:publish": "vite build && electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "electron-updater": "^6.1.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "vite": "^5.0.8",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.raimondi.agregados",
+    "productName": "Raimondi - Gestão de Agregados",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "public/icon.ico",
+      "installerHeaderIcon": "public/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Raimondi Agregados"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "caiovc2017-wq",
+      "repo": "raimondi-agregados",
+      "private": false
+    }
+  }
+}
