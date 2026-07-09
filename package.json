@@ -1,6 +1,6 @@
 {
   "name": "raimondi-agregados",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Sistema de Gestão de Agregados e Terceirizados - Raimondi",
   "main": "electron/main.js",
   "homepage": "./",
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
-    "electron-updater": "^6.1.7",
+    "electron-updater": "^6.8.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.0"
