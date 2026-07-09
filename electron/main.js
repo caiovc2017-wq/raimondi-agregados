@@ -1,8 +1,11 @@
-const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron')
+const { app, BrowserWindow, shell, ipcMain, dialog, Menu } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const path = require('path')
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
+
+// Remove o menu padrão (File, Edit, View, Window, Help)
+Menu.setApplicationMenu(null)
 
 // Configura logs do updater
 autoUpdater.logger = require('electron').app
