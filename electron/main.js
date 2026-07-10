@@ -1,16 +1,12 @@
-const { app, BrowserWindow, shell, ipcMain, dialog, Menu } = require('electron')
+const { app, BrowserWindow, shell, ipcMain, Menu, dialog } = require('electron')
 const { autoUpdater } = require('electron-updater')
-const log = require('electron-log')
 const path = require('path')
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
-// Remove o menu padrão (File, Edit, View, Window, Help)
 Menu.setApplicationMenu(null)
 
-// Configura logger do updater corretamente
-autoUpdater.logger = log
-autoUpdater.logger.transports.file.level = 'info'
+// Configura updater sem logger externo
 autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = true
 
@@ -45,12 +41,15 @@ function createWindow() {
     mainWindow.show()
     mainWindow.focus()
     mainWindow.setAlwaysOnTop(true)
-    setTimeout(() => mainWindow.setAlwaysOnTop(false), 500)
-
-    // Verifica atualizações após carregar (só em produção)
-    if (!isDev) {
-      setTimeout(() => autoUpdater.checkForUpdates(), 3000)
-    }
+    setTimeout(() => {
+      mainWindow.setAlwaysOnTop(false)
+      // Verifica atualização 3s após carregar
+      if (!isDev) {
+        autoUpdater.checkForUpdates().catch(err => {
+          console.log('Erro ao verificar atualização:', err.message)
+        })
+      }
+    }, 3000)
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -61,15 +60,8 @@ function createWindow() {
 
 // ── AUTO-UPDATER EVENTS ─────────────────────────────────────────
 
-autoUpdater.on('checking-for-update', () => {
-  sendToWindow('update-status', { status: 'checking' })
-})
-
 autoUpdater.on('update-available', (info) => {
-  sendToWindow('update-status', {
-    status: 'available',
-    version: info.version
-  })
+  sendToWindow('update-status', { status: 'available', version: info.version })
 })
 
 autoUpdater.on('update-not-available', () => {
@@ -85,27 +77,26 @@ autoUpdater.on('download-progress', (progress) => {
 })
 
 autoUpdater.on('update-downloaded', (info) => {
-  sendToWindow('update-status', {
-    status: 'downloaded',
-    version: info.version
-  })
+  sendToWindow('update-status', { status: 'downloaded', version: info.version })
 })
 
 autoUpdater.on('error', (err) => {
-  sendToWindow('update-status', {
-    status: 'error',
-    message: err.message
-  })
+  console.log('Erro no updater:', err.message)
+  sendToWindow('update-status', { status: 'error', message: err.message })
 })
 
-// IPC: usuário clica em "Instalar agora"
+// IPC: instalar agora
 ipcMain.on('install-update', () => {
   autoUpdater.quitAndInstall(false, true)
 })
 
 // IPC: verificar manualmente
 ipcMain.on('check-update', () => {
-  if (!isDev) autoUpdater.checkForUpdates()
+  if (!isDev) {
+    autoUpdater.checkForUpdates().catch(err => {
+      console.log('Erro ao verificar:', err.message)
+    })
+  }
 })
 
 // ── HELPERS ─────────────────────────────────────────────────────
