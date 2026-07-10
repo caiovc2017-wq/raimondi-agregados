@@ -10,6 +10,16 @@ export default function Relatorios() {
   const [filtros, setFiltros] = useState({ dataInicio: primeiroDiaMes, dataFim: hoje })
   const [dados, setDados] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [obras, setObras] = useState([])
+  const [filtroObra, setFiltroObra] = useState('')
+  const [buscaReq, setBuscaReq] = useState('')
+
+  // Carrega obras para o filtro
+  useEffect(() => {
+    supabase.from('obras').select('id, nome, codigo').order('nome').then(({ data }) => {
+      if (data) setObras(data)
+    })
+  }, [])
 
   const abas = ['Pagamentos', 'Horas e volume', 'Abastecimentos', 'Comparativo mensal', 'Por requisição']
 
@@ -22,7 +32,7 @@ export default function Relatorios() {
       { data: abastecimentos },
       { data: fechamentos }
     ] = await Promise.all([
-      supabase.from('lancamentos').select('*, agregados(nome), equipamentos(nome, tipo)').gte('data_lancamento', dataInicio).lte('data_lancamento', dataFim),
+      supabase.from('lancamentos').select('*, agregados(nome), equipamentos(nome, tipo), obras(id, nome, codigo)').gte('data_lancamento', dataInicio).lte('data_lancamento', dataFim),
       supabase.from('abastecimentos').select('*, agregados(nome), equipamentos(nome)').gte('data_abastecimento', dataInicio).lte('data_abastecimento', dataFim),
       supabase.from('fechamentos').select('*, agregados(nome)').gte('data_inicio', dataInicio).lte('data_fim', dataFim)
     ])
@@ -331,32 +341,112 @@ export default function Relatorios() {
 
             {/* ABA 4 — POR REQUISIÇÃO */}
             {abaAtiva === 4 && (
-              <div className="card">
-                <table className="data-table">
-                  <thead><tr><th>Requisição</th><th>Agregado</th><th>Equipamento</th><th>Tipo</th><th>Qtd</th><th>Valor unit.</th><th>Total</th></tr></thead>
-                  <tbody>
-                    {dados.requisicoes.flatMap(r =>
-                      r.itens.map((l, i) => (
-                        <tr key={`${r.requisicao}-${i}`}>
-                          <td><span className="tag">{r.requisicao}</span></td>
-                          <td className="td-primary">{l.agregados?.nome}</td>
-                          <td>{l.equipamentos?.nome}</td>
-                          <td><span className={`chip ${l.tipo === 'hora_maquina' ? 'chip-hora' : 'chip-m3'}`}>{l.tipo === 'hora_maquina' ? 'Hora máq.' : 'Carga m³'}</span></td>
-                          <td>{l.tipo === 'hora_maquina' ? `${l.quantidade} h` : `${l.quantidade} m³`}</td>
-                          <td>{l.is_permuta ? '—' : l.valor_unitario ? `R$ ${Number(l.valor_unitario).toFixed(2).replace('.', ',')}/${l.tipo === 'hora_maquina' ? 'h' : 'm³'}` : '—'}</td>
-                          <td>{l.is_permuta ? <span style={{ color: '#3c3489', fontWeight: 600 }}>Permuta</span> : l.valor_total ? fmtValor(l.valor_total) : '—'}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colSpan={6}>Total</td>
-                      <td className="td-success">{fmtValor(dados.lancamentos.filter(l => !l.is_permuta).reduce((s, l) => s + Number(l.valor_total || 0), 0))} + permutas</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+              <>
+                {/* FILTROS DA ABA */}
+                <div className="filters-bar">
+                  <input
+                    className="form-input"
+                    style={{ width: 200 }}
+                    placeholder="🔍 Buscar requisição..."
+                    value={buscaReq}
+                    onChange={e => setBuscaReq(e.target.value)}
+                  />
+                  <select
+                    className="form-input form-select"
+                    style={{ width: 'auto', minWidth: 200 }}
+                    value={filtroObra}
+                    onChange={e => setFiltroObra(e.target.value)}
+                  >
+                    <option value="">Todas as obras</option>
+                    {obras.map(o => (
+                      <option key={o.id} value={o.id}>
+                        {o.codigo ? `[${o.codigo}] ` : ''}{o.nome}
+                      </option>
+                    ))}
+                  </select>
+                  {(filtroObra || buscaReq) && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => { setFiltroObra(''); setBuscaReq('') }}
+                    >
+                      <i className="ti ti-x" /> Limpar filtros
+                    </button>
+                  )}
+                  <span style={{ marginLeft: 'auto', fontSize: 13, color: '#8a93a5' }}>
+                    {dados.requisicoes
+                      .filter(r => {
+                        const matchReq = !buscaReq || r.requisicao.toLowerCase().includes(buscaReq.toLowerCase())
+                        const matchObra = !filtroObra || r.itens.some(l => l.obras?.id === filtroObra)
+                        return matchReq && matchObra
+                      })
+                      .reduce((s, r) => s + r.itens.filter(l => !filtroObra || l.obras?.id === filtroObra).length, 0)
+                    } lançamentos
+                  </span>
+                </div>
+
+                <div className="card">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Requisição</th>
+                        <th>Agregado</th>
+                        <th>Obra</th>
+                        <th>Equipamento</th>
+                        <th>Tipo</th>
+                        <th>Qtd</th>
+                        <th>Valor unit.</th>
+                        <th>Total</th>
+                        <th>Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dados.requisicoes
+                        .filter(r => {
+                          const matchReq = !buscaReq || r.requisicao.toLowerCase().includes(buscaReq.toLowerCase())
+                          const matchObra = !filtroObra || r.itens.some(l => l.obras?.id === filtroObra)
+                          return matchReq && matchObra
+                        })
+                        .flatMap(r =>
+                          r.itens
+                            .filter(l => !filtroObra || l.obras?.id === filtroObra)
+                            .map((l, i) => (
+                              <tr key={`${r.requisicao}-${i}`}>
+                                <td><span className="tag">{r.requisicao}</span></td>
+                                <td className="td-primary">{l.agregados?.nome}</td>
+                                <td className="td-muted">{l.obras?.nome || '—'}</td>
+                                <td>{l.equipamentos?.nome}</td>
+                                <td><span className={`chip ${l.tipo === 'hora_maquina' ? 'chip-hora' : 'chip-m3'}`}>{l.tipo === 'hora_maquina' ? 'Hora máq.' : 'Carga m³'}</span></td>
+                                <td>{l.tipo === 'hora_maquina' ? `${l.quantidade} h` : `${l.quantidade} m³`}</td>
+                                <td>{l.is_permuta ? '—' : l.valor_unitario ? `R$ ${Number(l.valor_unitario).toFixed(2).replace('.', ',')}/${l.tipo === 'hora_maquina' ? 'h' : 'm³'}` : '—'}</td>
+                                <td>{l.is_permuta ? <span style={{ color: '#3c3489', fontWeight: 600 }}>Permuta</span> : l.valor_total ? fmtValor(l.valor_total) : '—'}</td>
+                                <td className="td-muted">{new Date(l.data_lancamento + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                              </tr>
+                            ))
+                        )
+                      }
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colSpan={7}>Total</td>
+                        <td className="td-success">
+                          {fmtValor(
+                            dados.requisicoes
+                              .filter(r => {
+                                const matchReq = !buscaReq || r.requisicao.toLowerCase().includes(buscaReq.toLowerCase())
+                                const matchObra = !filtroObra || r.itens.some(l => l.obras?.id === filtroObra)
+                                return matchReq && matchObra
+                              })
+                              .flatMap(r => r.itens.filter(l => !filtroObra || l.obras?.id === filtroObra))
+                              .filter(l => !l.is_permuta)
+                              .reduce((s, l) => s + Number(l.valor_total || 0), 0)
+                          )} + permutas
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </>
             )}
           </>
         )}
