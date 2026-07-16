@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
-import { exportarPDF, exportarExcel, exportarPagamentos, exportarHorasVolume, exportarAbastecimentos, exportarComparativo, exportarPorRequisicao } from '../../lib/exportar'
+import { exportarPDF, exportarExcel, exportarPagamentos, exportarHorasVolume, exportarAbastecimentos, exportarComparativo, exportarPorRequisicao, exportarPDFFechamento } from '../../lib/exportar'
 
 const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
 const hoje = new Date().toISOString().split('T')[0]
@@ -117,7 +117,7 @@ export default function Relatorios() {
       case 1: resultado = exportarHorasVolume(dados.equipamentos, periodo); break
       case 2: resultado = exportarAbastecimentos(dados.abastecimentos, periodo); break
       case 3: resultado = exportarComparativo(dados.comparativo); break
-      case 4: resultado = exportarPorRequisicao(dados.requisicoes); break
+      case 4: resultado = exportarPorRequisicao(dados.requisicoes, filtroObra, buscaReq); break
       default: return
     }
     exportarExcel(resultado.dadosExcel, resultado.nomeArquivo)
@@ -127,13 +127,25 @@ export default function Relatorios() {
     if (!dados) { alert('Gere o relatório primeiro.'); return }
     const nomesAbas = ['Pagamentos por Agregado', 'Horas e Volume', 'Abastecimentos', 'Comparativo Mensal', 'Lançamentos por Requisição']
     const subtitulo = `Período: ${new Date(filtros.dataInicio + 'T12:00:00').toLocaleDateString('pt-BR')} até ${new Date(filtros.dataFim + 'T12:00:00').toLocaleDateString('pt-BR')}`
+
+    // Aba "Por requisição" usa layout de folha de fechamento
+    if (abaAtiva === 4) {
+      const resultado = exportarPorRequisicao(dados.requisicoes, filtroObra, buscaReq)
+      const obraSel = obras.find(o => o.id === filtroObra)
+      exportarPDFFechamento(resultado.itensFiltrados, {
+        obraNome: obraSel ? `${obraSel.codigo ? '[' + obraSel.codigo + '] ' : ''}${obraSel.nome}` : 'Todas as obras',
+        dataInicio: filtros.dataInicio,
+        dataFim: filtros.dataFim
+      })
+      return
+    }
+
     let resultado, linhas
     switch (abaAtiva) {
       case 0: resultado = exportarPagamentos(dados.pagamentos, periodo); linhas = dados.pagamentos; break
       case 1: resultado = exportarHorasVolume(dados.equipamentos, periodo); linhas = dados.equipamentos; break
       case 2: resultado = exportarAbastecimentos(dados.abastecimentos, periodo); linhas = dados.abastecimentos; break
       case 3: resultado = exportarComparativo(dados.comparativo); linhas = dados.comparativo; break
-      case 4: resultado = exportarPorRequisicao(dados.requisicoes); linhas = dados.lancamentos; break
       default: return
     }
     exportarPDF(nomesAbas[abaAtiva], resultado.colunas, linhas, subtitulo)
